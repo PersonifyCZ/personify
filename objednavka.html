@@ -357,11 +357,12 @@
   /* TOP banner - posunutý mírně níž aby nekolidoval s logem */
   .top-banner {
     position: absolute;
-    top: 38px;
+    top: 23px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 5;
     text-align: center;
+    white-space: nowrap;
   }
   .top-banner .ornament-line {
     display: inline-flex;
@@ -372,7 +373,7 @@
   .top-banner .ornament-line::before,
   .top-banner .ornament-line::after {
     content: '';
-    width: 60px;
+    width: 45px;
     height: 1px;
     background: linear-gradient(90deg, transparent, #c9a864 50%, transparent);
   }
@@ -380,9 +381,10 @@
     font-family: 'Cinzel', 'Playfair Display', Georgia, serif;
     font-size: 11px;
     font-weight: 500;
-    letter-spacing: 0.45em;
+    letter-spacing: 0.4em;
     color: #a88848;
     text-transform: uppercase;
+    white-space: nowrap;
   }
   .top-banner .ornament {
     color: #c9a864;
@@ -427,7 +429,7 @@
   /* CENTRUM - foto + PRAGUE - JEŠTĚ VÝŠ */
   .center-stack {
     position: absolute;
-    top: 78px;
+    top: 55px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 4;
@@ -436,8 +438,8 @@
   }
 
   .photo-container {
-    width: 240px;
-    height: 200px;
+    width: 260px;
+    height: 220px;
     margin: 0 auto;
     position: relative;
     display: flex;
@@ -447,8 +449,8 @@
 
   /* Photo frame - tvar se mění podle volby */
   .photo-frame {
-    width: 200px;
-    height: 200px;
+    width: 220px;
+    height: 220px;
     position: relative;
     overflow: hidden;
     background: #fbf3e0;
@@ -457,8 +459,8 @@
 
   /* Tvar: kruh */
   .photo-frame.shape-circle {
-    width: 200px;
-    height: 200px;
+    width: 220px;
+    height: 220px;
     border-radius: 50%;
     box-shadow:
       0 0 0 2px #c9a864,
@@ -470,8 +472,8 @@
   }
   /* Tvar: čtverec */
   .photo-frame.shape-square {
-    width: 200px;
-    height: 200px;
+    width: 220px;
+    height: 220px;
     border-radius: 4px;
     box-shadow:
       0 0 0 2px #c9a864,
@@ -483,8 +485,8 @@
   }
   /* Tvar: obdélník (na šířku) */
   .photo-frame.shape-rectangle {
-    width: 240px;
-    height: 180px;
+    width: 260px;
+    height: 196px;
     border-radius: 4px;
     box-shadow:
       0 0 0 2px #c9a864,
@@ -533,7 +535,7 @@
 
   /* PRAGUE block */
   .prague-block {
-    margin-top: 14px;
+    margin-top: 31px;
     text-align: center;
   }
   .prague-text {
@@ -588,7 +590,7 @@
   /* Image má asymetrii (hlava napravo, nohy mírně doleva), proto kompenzace */
   .mascot-floating {
     position: absolute;
-    top: 240px;
+    top: 260px;
     left: calc(50% - 8px);
     transform: translateX(-50%);
     z-index: 7;
@@ -604,7 +606,7 @@
   /* QR kódy - VEN do rohů, mimo centrální maskot */
   .qr-block {
     position: absolute;
-    bottom: 30px;
+    bottom: 42px;
     z-index: 5;
     text-align: center;
     width: 80px;
@@ -642,7 +644,7 @@
   /* Spodní stamp */
   .bottom-stamp {
     position: absolute;
-    bottom: 14px;
+    bottom: 19px;
     left: 0;
     right: 0;
     z-index: 5;
@@ -1280,9 +1282,70 @@
       submitBtn.disabled = true;
 
       try {
-        // Vygenerovat náhled etikety jako PNG
-        const canvas = await html2canvas(document.getElementById('label'), { scale: 4, backgroundColor: null });
-        const previewBlob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        const labelEl = document.getElementById('label');
+        const safeName = groupNameVal.replace(/[^a-z0-9]/gi, '_');
+        submitBtn.textContent = '⏳ Generuji tiskové soubory... / Generating print files...';
+
+        // === 1) Tiskový PNG ve vysokém rozlišení (3600×2700, ~750 DPI) ===
+        const printCanvas = await html2canvas(labelEl, {
+          scale: 6,
+          backgroundColor: null,
+          useCORS: true,
+          logging: false
+        });
+        const printBlob = await new Promise(r => printCanvas.toBlob(r, 'image/png'));
+
+        // === 2) 3D maska pro UV vrstvený lak (BÍLÁ = reliéf, ČERNÁ = ploché) ===
+        submitBtn.textContent = '⏳ Generuji 3D masku... / Generating 3D mask...';
+        const maskCanvas = await html2canvas(labelEl, {
+          scale: 6,
+          backgroundColor: '#000000',
+          useCORS: true,
+          logging: false,
+          onclone: function(clonedDoc) {
+            const clone = clonedDoc.getElementById('label');
+            clone.style.background = '#000';
+            const styleOverride = clonedDoc.createElement('style');
+            styleOverride.textContent = '#label::before { display: none !important; } #label * { text-shadow: none !important; box-shadow: none !important; } #label .ornament-line::before, #label .ornament-line::after { background: #fff !important; } #label .prague-flourish .line { background: #fff !important; }';
+            clone.parentNode.appendChild(styleOverride);
+            // Rámečky bílé
+            const fo = clone.querySelector('.frame-outer'); if (fo) fo.style.borderColor = '#fff';
+            const fi = clone.querySelector('.frame-inner'); if (fi) fi.style.borderColor = '#fff';
+            // Texty bílé
+            clone.querySelectorAll('div, span, p').forEach(el => {
+              if (el.textContent && el.textContent.trim()) el.style.color = '#fff';
+            });
+            // SVG
+            clone.querySelectorAll('svg').forEach(svg => {
+              svg.querySelectorAll('path, ellipse, line, circle, polygon, rect').forEach(s => {
+                const stk = s.getAttribute('stroke'), fl = s.getAttribute('fill');
+                if (stk && stk !== 'none' && stk !== 'transparent') s.setAttribute('stroke', '#fff');
+                if (fl && fl !== 'none' && fl !== 'transparent') s.setAttribute('fill', '#fff');
+              });
+            });
+            // Loga jako bílé siluety
+            clone.querySelectorAll('.corner-logo img').forEach(l => l.style.filter = 'brightness(0) invert(1)');
+            const m = clone.querySelector('.mascot-floating img'); if (m) m.style.filter = 'brightness(0) invert(1)';
+            // Foto frame - bez fota (foto má být ploché)
+            const pf = clone.querySelector('.photo-frame');
+            if (pf) {
+              pf.style.boxShadow = 'none';
+              pf.style.border = '6px solid #fff';
+              pf.style.background = '#000';
+              const pi = pf.querySelector('img'); if (pi) pi.style.display = 'none';
+              const pp = pf.querySelector('.photo-placeholder'); if (pp) pp.style.display = 'none';
+            }
+            // QR jako bílé bloky
+            clone.querySelectorAll('.qr-container').forEach(qr => {
+              qr.style.background = '#fff'; qr.style.borderColor = '#fff';
+              const qc = qr.querySelector('canvas, img, table'); if (qc) qc.style.visibility = 'hidden';
+            });
+            clone.querySelectorAll('.photo-decoration, .ornament, .diamond').forEach(d => d.style.color = '#fff');
+          }
+        });
+        const maskBlob = await new Promise(r => maskCanvas.toBlob(r, 'image/png'));
+
+        submitBtn.textContent = '⏳ Odesílám email... / Sending email...';
 
         const formData = new FormData();
         formData.append('_subject', 'Nová objednávka etikety – ' + groupNameVal);
@@ -1294,8 +1357,15 @@
         formData.append('Počet kusů', qty);
         formData.append('Tvar foto', shapeNames[shape]);
         formData.append('Souhlas s VOP', termsAccepted ? 'Ano' : 'Ne');
-        formData.append('photo', photoFile, 'foto-' + groupNameVal.replace(/[^a-z0-9]/gi, '_') + '.' + photoFile.name.split('.').pop());
-        formData.append('preview', previewBlob, 'nahled-' + groupNameVal.replace(/[^a-z0-9]/gi, '_') + '.png');
+        // Parametry úprav fotky (textově) - pro případ ručního přepočtu
+        formData.append('Foto - Posun X', Math.round(photoState.x) + ' px');
+        formData.append('Foto - Posun Y', Math.round(photoState.y) + ' px');
+        formData.append('Foto - Zoom', photoState.scale.toFixed(2) + 'x');
+        formData.append('Foto - Rotace', photoState.rotation + '°');
+        // 3 přílohy - originál fotky + tiskový PNG + 3D maska
+        formData.append('original-foto', photoFile, 'original-foto-' + safeName + '.' + photoFile.name.split('.').pop());
+        formData.append('tisk', printBlob, 'TISK-' + safeName + '.png');
+        formData.append('maska-3D', maskBlob, 'MASKA-3D-' + safeName + '.png');
 
         const response = await fetch('https://formspree.io/f/' + FORMSPREE_ID, {
           method: 'POST',
@@ -1304,7 +1374,7 @@
         });
 
         if (response.ok) {
-          alert('✓ Objednávka odeslána! Ozveme se do 24 hodin.\n✓ Order sent! We will contact you within 24 hours.');
+          alert('✓ Objednávka odeslána včetně tiskových souborů!\n   Ozveme se do 24 hodin.\n\n✓ Order sent with print files!\n   We will contact you within 24 hours.');
           submitBtn.textContent = origText;
           submitBtn.disabled = false;
         } else {
